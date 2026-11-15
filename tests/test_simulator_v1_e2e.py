@@ -167,8 +167,8 @@ def test_simulator_v1_usages_power_and_split_phase_voltage(
     assert "1,2,3" in home_kwh.channels
     assert home_kwh.channels["1,2,3"].channel_id == "Mains"
     assert home_kwh.channels["1,2,3"].usage > 0
-    assert "Mains_A" in home_kwh.channels
-    assert "Mains_B" in home_kwh.channels
+    assert "Mains_A" not in home_kwh.channels
+    assert "Mains_B" not in home_kwh.channels
     assert "1" in home_kwh.channels
     assert "2" in home_kwh.channels
     assert "Balance" in home_kwh.channels
@@ -184,6 +184,16 @@ def test_simulator_v1_usages_power_and_split_phase_voltage(
     assert home_volts.channels["Mains_A"].usage == pytest.approx(120.4)
     assert home_volts.channels["Mains_B"].usage == pytest.approx(121.1)
     assert home_volts.channels["Mains_C"].usage == pytest.approx(0.0)
+
+    # 3. Amp-hours telemetry (Unit.AMPHOURS -> AMP_HOURS)
+    devices_ah = simulated_vue.get_device_list_usage_v1(
+        device_gids=[1000, 1005], energy_unit=Unit.AMPHOURS
+    )
+    assert 1000 in devices_ah
+    home_ah = devices_ah[1000]
+    assert home_ah.channels["1,2,3"].usage is None
+    assert home_ah.channels["Mains_A"].usage > 0
+    assert home_ah.channels["Mains_B"].usage > 0
 
     # EVSE 240V
     assert 1005 in devices_volts

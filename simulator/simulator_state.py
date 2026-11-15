@@ -460,7 +460,9 @@ class SimulatorState(object):
                     target_gids.add(int(g))
 
         device_usages = []
-        is_voltage = (energy_unit.upper() in ("VOLTAGE", "VOLTS"))
+        unit_upper = energy_unit.upper()
+        is_voltage = unit_upper in ("VOLTAGE", "VOLTS")
+        is_amp_hours = unit_upper in ("AMP_HOURS", "AMPHOURS")
 
         for dev in self.devices:
             if target_gids and dev.deviceGid not in target_gids:
@@ -513,6 +515,81 @@ class SimulatorState(object):
                         "included_in_total_usage": None,
                         "nested_devices": [],
                     })
+                elif is_amp_hours:
+                    mains_usage = (
+                        self.usage_dict_1min.get(f"{dev.deviceGid}_1,2,3", 85 * 240 / 60000)
+                        or 0.0
+                    )
+                    mains_ah = mains_usage * 1000.0 / 120.0
+                    nested_mains = [
+                        self._build_usage_device(child, is_voltage)
+                        for child in self.devices
+                        if child.parentDeviceGid == dev.deviceGid
+                        and child.parentChannelNum == "1,2,3"
+                    ]
+                    channel_usages.append({
+                        "device_gid": dev.deviceGid,
+                        "channel_id": "Mains",
+                        "channel_num": "1,2,3",
+                        "name": "Main",
+                        "usage": None,
+                        "percentage": 0.0,
+                        "raw_usage": None,
+                        "included_in_total_usage": None,
+                        "nested_devices": nested_mains,
+                    })
+                    channel_usages.append({
+                        "device_gid": dev.deviceGid,
+                        "channel_id": "Mains_A",
+                        "channel_num": "Mains_A",
+                        "name": "Main_A",
+                        "usage": mains_ah * 0.501,
+                        "percentage": 0.0,
+                        "raw_usage": None,
+                        "included_in_total_usage": None,
+                        "nested_devices": [],
+                    })
+                    channel_usages.append({
+                        "device_gid": dev.deviceGid,
+                        "channel_id": "Mains_B",
+                        "channel_num": "Mains_B",
+                        "name": "Main_B",
+                        "usage": mains_ah * 0.499,
+                        "percentage": 0.0,
+                        "raw_usage": None,
+                        "included_in_total_usage": None,
+                        "nested_devices": [],
+                    })
+                    for i in range(1, 9):
+                        ch_usage = self.usage_dict_1min.get(f"{dev.deviceGid}_{i}", 0.0) or 0.0
+                        nested_ch = [
+                            self._build_usage_device(child, is_voltage)
+                            for child in self.devices
+                            if child.parentDeviceGid == dev.deviceGid
+                            and child.parentChannelNum == str(i)
+                        ]
+                        channel_usages.append({
+                            "device_gid": dev.deviceGid,
+                            "channel_id": f"Branch_{i}",
+                            "channel_num": str(i),
+                            "name": f"Channel {i}",
+                            "usage": ch_usage * 1000.0 / 120.0,
+                            "percentage": 0.0,
+                            "raw_usage": None,
+                            "included_in_total_usage": None,
+                            "nested_devices": nested_ch,
+                        })
+                    channel_usages.append({
+                        "device_gid": dev.deviceGid,
+                        "channel_id": "TotalUsage",
+                        "channel_num": "TotalUsage",
+                        "name": "TotalUsage",
+                        "usage": mains_ah,
+                        "percentage": 0.0,
+                        "raw_usage": None,
+                        "included_in_total_usage": None,
+                        "nested_devices": [],
+                    })
                 else:
                     mains_usage = self.usage_dict_1min.get(f"{dev.deviceGid}_1,2,3", 85 * 240 / 60000) or 0.0
                     mains_raw = mains_usage * 1000.0
@@ -532,28 +609,6 @@ class SimulatorState(object):
                         "raw_usage": mains_raw,
                         "included_in_total_usage": None,
                         "nested_devices": nested_mains,
-                    })
-                    channel_usages.append({
-                        "device_gid": dev.deviceGid,
-                        "channel_id": "Mains_A",
-                        "channel_num": "Mains_A",
-                        "name": "Main_A",
-                        "usage": mains_usage * 0.501,
-                        "percentage": 50.01,
-                        "raw_usage": mains_raw * 0.501,
-                        "included_in_total_usage": None,
-                        "nested_devices": [],
-                    })
-                    channel_usages.append({
-                        "device_gid": dev.deviceGid,
-                        "channel_id": "Mains_B",
-                        "channel_num": "Mains_B",
-                        "name": "Main_B",
-                        "usage": mains_usage * 0.499,
-                        "percentage": 49.99,
-                        "raw_usage": mains_raw * 0.499,
-                        "included_in_total_usage": None,
-                        "nested_devices": [],
                     })
                     for i in range(1, 9):
                         ch_usage = self.usage_dict_1min.get(f"{dev.deviceGid}_{i}", 0.0) or 0.0
